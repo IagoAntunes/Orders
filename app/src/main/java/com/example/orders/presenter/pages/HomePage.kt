@@ -28,8 +28,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableIntState
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
@@ -42,75 +42,42 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.compose.OrdersTheme
 import com.example.orders.R
 import com.example.orders.data.dao.ProductsDao
 import com.example.orders.domain.models.MenuItemModel
 import com.example.orders.domain.models.ProductModel
-import com.example.orders.domain.models.SectionModel
+import com.example.orders.presenter.viewModel.HomeViewModel
 
-
-class HomePageUiState(
-    val listMenusFilter: SnapshotStateList<MenuItemModel>,
-    val indexOfSelectedMenu: MutableIntState,
-    val navController: NavController? = null
-) {
-
-    fun navigate(name: String, section: String) {
-        Log.i("NOME -->", name)
-        navController?.navigate("productDetail/$name/$section")
-    }
-}
 
 @Composable
 fun HomePage2(
-    navController: NavController? = null
+    navController: NavController? = null,
+    viewModel: HomeViewModel,
+    navigateProduct: () -> Unit,
 ) {
-    val indexOfSelectedMenu = remember {
-        mutableIntStateOf(0)
-    }
-    val listMenusFilter =
-        remember {
-            mutableStateListOf<MenuItemModel>(
-                MenuItemModel(name = "Todos", isSelected = true),
-                MenuItemModel(name = "Lanche do dia"),
-                MenuItemModel(name = "Promoções"),
-                MenuItemModel(name = "Bebidas"),
-            )
-        }
-    val state = remember {
-        HomePageUiState(
-            listMenusFilter,
-            indexOfSelectedMenu,
-            navController,
-        )
-    }
-
-    Log.i("1.oi", (navController == null).toString())
-    HomePage(state)
+    viewModel.navController = navController
+    HomePage(viewModel)
 }
 
 @Composable
-fun HomePage(state: HomePageUiState) {
-    Log.i("11.oi", (state.navController == null).toString())
+fun HomePage(viewModel: HomeViewModel) {
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        containerColor = Color(0xff0f172a)
+        modifier = Modifier.fillMaxSize(), containerColor = Color(0xff0f172a)
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
             Column(
-                Modifier
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
             ) {
-                HeadHomePage()
+                HeadHomePage(viewModel)
                 Divider(Modifier.padding(vertical = 16.dp))
                 MenusFilter(
-                    state.listMenusFilter,
-                    state.indexOfSelectedMenu,
+                    viewModel,
                 )
                 Spacer(modifier = Modifier.padding(vertical = 16.dp))
-                ListProducts(state)
+                ListProducts(viewModel)
             }
 
         }
@@ -119,50 +86,23 @@ fun HomePage(state: HomePageUiState) {
 
 
 @Composable
-fun ListProducts(state: HomePageUiState) {
-    val dao = ProductsDao()
-    Log.i("2.oi", (state.navController == null).toString())
+fun ListProducts(viewModel: HomeViewModel) {
     Column(Modifier.verticalScroll(state = rememberScrollState())) {
         SectionProducts(
-            section = dao.getDayFoodSection(),
-            state,
+            products = viewModel.getFoods(),
+            viewModel,
         )
-        SectionProducts(
-            section = dao.getPromotionsFoodSection(),
-            state = state
-        )
-        SectionProducts(
-            section = dao.getDrinks(),
-            state = state
-        )
-
     }
 }
 
-@Preview()
 @Composable
 private fun SectionProducts(
-    section: SectionModel = SectionModel(
-        name = "Lanche do dia",
-        listProducts = mutableListOf(
-            ProductModel(
-                name = "X-React",
-                description = "Ola mundo",
-                image = R.drawable.hamburguer_1,
-                price = 35.90,
-                ingredients = mutableListOf()
-            )
-        )
-    ),
-    state: HomePageUiState = HomePageUiState(
-        listMenusFilter = mutableStateListOf(),
-        indexOfSelectedMenu = mutableIntStateOf(0),
-    )
+    products: List<ProductModel>,
+    viewModel: HomeViewModel,
 ) {
-    Log.i("3.oi", (state.navController == null).toString())
     Column {
         Text(
-            section.name,
+            "SEÇÃO",
             style = TextStyle(
                 color = Color.White,
                 fontSize = 20.sp,
@@ -170,77 +110,82 @@ private fun SectionProducts(
 
                 ),
         )
-        for (product in section.listProducts) {
-            Row(
-                modifier = Modifier
-                    .padding(top = 6.dp, bottom = 8.dp)
-                    .clickable {
-                        Log.i("oi", (state.navController == null).toString())
-                        state.navigate(product.name, section.name)
-
-
-                    },
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Image(
-                    modifier = Modifier.size(92.dp),
-                    painter = painterResource(
-                        id = product.image,
-                    ),
-                    contentScale = ContentScale.Crop,
-                    contentDescription = null,
-                )
-                Column() {
-                    Text(
-                        text = product.name,
-                        style = TextStyle(
-                            color = Color.White,
-                            fontSize = 20.sp,
-                        )
-                    )
-                    Text(
-                        text = product.description,
-                        style = TextStyle(
-                            color = Color(0xff94a3b8),
-                            fontSize = 12.sp
-                        )
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MenusFilter(
-    listMenusFilter: MutableList<MenuItemModel>,
-    indexOfSelectedMenu: MutableIntState
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.horizontalScroll(state = rememberScrollState())
-    ) {
-
-        for (index in listMenusFilter.indices) {
-            MenuItemFilter(
-                isSelected = listMenusFilter[index].isSelected,
-                text = listMenusFilter[index].name,
-                onClick = {
-                    indexOfSelectedMenu.intValue = index
-                    if (index == indexOfSelectedMenu.value) {
-                        listMenusFilter[index].isSelected = true
-                    } else {
-                        listMenusFilter[index].isSelected = false
-                    }
-                    Log.i(listMenusFilter[index].name, listMenusFilter[index].isSelected.toString())
-                }
+        for (product in products) {
+            ProductItem(
+                {
+                    viewModel.navigate(product.name, "awda")
+                },
+                product,
             )
         }
     }
 }
 
 @Composable
-private fun HeadHomePage() {
+fun ProductItem(
+    onClick: () -> Unit,
+    product: ProductModel,
+) {
+    Row(
+        modifier = Modifier
+            .padding(top = 6.dp, bottom = 8.dp)
+            .clickable {
+                onClick()
+            },
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Image(
+            modifier = Modifier.size(92.dp),
+            painter = painterResource(
+                id = product.image,
+            ),
+            contentScale = ContentScale.Crop,
+            contentDescription = null,
+        )
+        Column() {
+            Text(
+                text = product.name, style = TextStyle(
+                    color = Color.White,
+                    fontSize = 20.sp,
+                )
+            )
+            Text(
+                text = product.description, style = TextStyle(
+                    color = Color(0xff94a3b8), fontSize = 12.sp
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun MenusFilter(
+    viewModel: HomeViewModel,
+
+    ) {
+    val itemStates = remember {
+        mutableStateOf(viewModel.listMenusFilter)
+    }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier.horizontalScroll(state = rememberScrollState())
+    ) {
+
+        for ((index, item) in itemStates.value.withIndex()) {
+
+            MenuItemFilter(
+                isSelected = item.isSelected,
+                text = item.name,
+                onClick = {
+                    viewModel.changeMenuSelected(item, index)
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun HeadHomePage(viewModel: HomeViewModel) {
     Image(
         painter = painterResource(id = R.drawable.logo_nlw),
         contentDescription = "",
@@ -265,6 +210,9 @@ private fun HeadHomePage() {
             imageVector = Icons.Default.ShoppingCart,
             contentDescription = "",
             tint = Color.White,
+            modifier = Modifier.clickable {
+                viewModel.navController?.navigate("cart")
+            }
         )
     }
 }
@@ -282,9 +230,7 @@ private fun MenuItemFilter(
             .run {
                 if (isSelected) {
                     border(
-                        1.dp,
-                        Color(0xffA3E635),
-                        shape = RoundedCornerShape(6.dp)
+                        1.dp, Color(0xffA3E635), shape = RoundedCornerShape(6.dp)
                     ) // Add a 1dp white border if useDarkTheme is true
                 } else {
                     this // Return the original modifier if useDarkTheme is false
@@ -313,10 +259,3 @@ private fun MenuItemFilterSelected() {
     MenuItemFilter(isSelected = true)
 }
 
-@Preview
-@Composable
-private fun HomePagePreview() {
-    OrdersTheme(useDarkTheme = true) {
-        HomePage2()
-    }
-}
